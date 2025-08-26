@@ -23,6 +23,7 @@ const newFileForm = reactive<AddFile>({...NewAddFile})
 const newFileFormOpen = ref(false)
 const formRef = ref(null)
 const uploadRate = ref(0)
+const uploadMsg = ref('')
 const downloadRate = ref(0)
 postNewPath(1);
 
@@ -57,6 +58,7 @@ EventsOn(`upload_rate_call_${sessionId.value}`, async (rateAndMsg: string) => {
   }
   let rateArray = rateAndMsg.split('|');
   uploadRate.value = parseInt(rateArray[0])
+  uploadMsg.value = rateArray[1]
 })
 
 EventsOn(`download_rate_call_${sessionId.value}`, async (rateAndMsg: string) => {
@@ -372,26 +374,26 @@ const UploadDirOrFile = async () => {
       </template>
     </el-input>
     <div style="margin-top: 10px;display: flex;">
-        <el-button plain type="" :icon="FolderAdd" @click="newFolder">新建文件夹</el-button>
-        <el-button plain type="" :icon="DocumentAdd" @click="newFile">新建文件</el-button>
-        <el-button plain type="" :icon="Refresh" @click="refreshDir">刷新</el-button>
-        <el-button plain type="" :icon="Upload" @click="UploadDirOrFile">上传到此目录</el-button>
-        <el-button plain type="" @click="pasteCopy" v-if="copyDir!==''" :icon="DocumentChecked">粘贴到此目录(复制)</el-button>
-        <el-button plain type="" @click="pasteCut" v-if="cutDir!==''" :icon="DocumentChecked">粘贴到此目录(剪切)</el-button>
-        <div style="margin-left: 10px;" v-show="uploadRate > 0 && uploadRate < 100">
-          <el-tag closable type="info" size="large">
-            <div>
-              上传进度 :&nbsp;&nbsp;&nbsp;{{uploadRate}}%
-            </div>
-          </el-tag>
-        </div>
-        <div style="margin-left: 10px;" v-show="downloadRate > 0 && downloadRate < 100">
-          <el-tag closable type="info" size="large">
-            <div>
-              下载进度 :&nbsp;&nbsp;&nbsp;{{downloadRate}}%
-            </div>
-          </el-tag>
-        </div>
+      <el-button plain type="" :icon="FolderAdd" @click="newFolder">新建文件夹</el-button>
+      <el-button plain type="" :icon="DocumentAdd" @click="newFile">新建文件</el-button>
+      <el-button plain type="" :icon="Refresh" @click="refreshDir">刷新</el-button>
+      <el-button plain type="" :icon="Upload" @click="UploadDirOrFile">上传到此目录</el-button>
+      <el-button plain type="" @click="pasteCopy" v-if="copyDir!==''" :icon="DocumentChecked">粘贴到此目录(复制)</el-button>
+      <el-button plain type="" @click="pasteCut" v-if="cutDir!==''" :icon="DocumentChecked">粘贴到此目录(剪切)</el-button>
+      <div style="margin-left: 10px;" v-show="uploadRate > 0 && uploadRate < 100">
+        <el-tag closable type="info" size="large">
+          <div>
+            上传进度 :&nbsp;&nbsp;&nbsp;{{uploadRate}}% | {{uploadMsg}}}
+          </div>
+        </el-tag>
+      </div>
+      <div style="margin-left: 10px;" v-show="downloadRate > 0 && downloadRate < 100">
+        <el-tag closable type="info" size="large">
+          <div>
+            下载进度 :&nbsp;&nbsp;&nbsp;{{downloadRate}}%
+          </div>
+        </el-tag>
+      </div>
     </div>
     <div class="custom-grid" style="margin-top: 10px;" v-loading="findIng">
       <el-card shadow="hover" class="a-center card-height" @dblclick="goToParent">

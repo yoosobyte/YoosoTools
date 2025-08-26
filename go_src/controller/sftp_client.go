@@ -4,12 +4,14 @@ import (
 	"YoosoTools/go_src/entity"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/bramvdbogaerde/go-scp"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -774,6 +776,7 @@ func UploadDirOrFile(targetUploadPath, willUploadPath, sessionId string) string 
 		uploadType = "文件"
 		runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, "10|开始上传文件...")
 		result = uploadSingleFile(willUploadPath, targetUploadPath, sessionId, sessionData)
+		fmt.Println("result:", result)
 	}
 
 	if result["success"].(bool) {
@@ -791,22 +794,20 @@ func UploadDirOrFile(targetUploadPath, willUploadPath, sessionId string) string 
 		return entity.ErrorOnlyMsgStr(uploadType + "上传失败: " + result["error"].(string))
 	}
 }
-
-// 上传单个文件（带进度）
 func uploadSingleFile(localFilePath, remoteDirPath, sessionId string, sessionData *SessionData) map[string]interface{} {
-	runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, "15|准备上传文件...")
+	runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, "10|准备上传文件...")
 
 	// 获取文件名
 	fileName := filepath.Base(localFilePath)
 
-	// 正确构建远程路径（统一使用正斜杠）
+	// 正确构建远程路径
 	remoteFilePath := fmt.Sprintf("%s/%s", remoteDirPath, fileName)
-	remoteFilePath = strings.ReplaceAll(remoteFilePath, "\\", "/") // 替换所有反斜杠
-	remoteFilePath = strings.ReplaceAll(remoteFilePath, "//", "/") // 去除重复斜杠
+	remoteFilePath = strings.ReplaceAll(remoteFilePath, "\\", "/")
+	remoteFilePath = strings.ReplaceAll(remoteFilePath, "//", "/")
 
 	fmt.Printf("上传文件: 本地=%s, 远程=%s\n", localFilePath, remoteFilePath)
 
-	// 打开本地文件
+	// 打开本地文件获取文件信息
 	file, err := os.Open(localFilePath)
 	if err != nil {
 		runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, "1|错误：打开本地文件失败")
@@ -827,69 +828,184 @@ func uploadSingleFile(localFilePath, remoteDirPath, sessionId string, sessionDat
 	}
 
 	fileSize := fileStat.Size()
-	runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, fmt.Sprintf("20|文件大小: %s", formatFileSize(fileSize)))
+	runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, fmt.Sprintf("15|文件大小: %s", formatFileSizeCusK(fileSize)))
 
-	// 使用简单的 Base64 方式上传（便于进度跟踪）
-	runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, "25|读取文件内容...")
-	content, err := os.ReadFile(localFilePath)
+	// 确保远程目录存在
+	runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, "20|创建远程目录...")
+	dirCmd := fmt.Sprintf("mkdir -p '%s'", remoteDirPath)
+	if _, err := ExecuteBackendCommand(dirCmd, sessionId); err != nil {
+		runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, "1|错误：创建目录失败")
+		return map[string]interface{}{
+			"success": false,
+			"error":   "创建远程目录失败: " + err.Error(),
+		}
+	}
+
+	// 根据文件大小选择上传方式
+	if fileSize > 1*1024*1024 { // 大于50MB的文件使用SCP
+		runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, "25|使用SCP方式上传大文件...")
+		result := uploadWithSCP(localFilePath, remoteFilePath, sessionId, fileSize)
+		if result["success"].(bool) {
+			return result
+		}
+		// SCP失败时回退到Python方式
+		runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, "30|SCP失败，尝试分块上传方式...")
+	}
+
+	// 如果SCP失败，尝试分块上传
+	runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, "50|SCP失败，尝试分块上传...")
+	return uploadWithChunks(localFilePath, remoteFilePath, sessionId, fileSize)
+}
+
+// 使用SCP方式上传文件
+func uploadWithSCP(localFilePath, remoteFilePath, sessionId string, fileSize int64) map[string]interface{} {
+	session, exists := sessions[sessionId]
+	if !exists {
+		return map[string]interface{}{
+			"success": false,
+			"error":   "SSH会话不存在",
+		}
+	}
+
+	file, err := os.Open(localFilePath)
 	if err != nil {
-		runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, "1|错误：读取文件失败")
 		return map[string]interface{}{
 			"success": false,
-			"error":   "读取文件失败: " + err.Error(),
+			"error":   "打开本地文件失败: " + err.Error(),
 		}
 	}
+	defer file.Close()
 
-	runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, "40|编码文件内容...")
-	encodedContent := base64.StdEncoding.EncodeToString(content)
-
-	runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, "60|上传到服务器...")
-
-	// 正确构建命令（确保路径用引号包裹）
-	createCmd := fmt.Sprintf("echo %s | base64 -d > '%s'", encodedContent, remoteFilePath)
-	fmt.Printf("执行命令: %s\n", createCmd)
-
-	output, err := ExecuteBackendCommand(createCmd, sessionId)
+	// 创建SCP客户端
+	scpClient, err := scp.NewClientBySSH(session.Client)
 	if err != nil {
-		runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, "1|错误：创建远程文件失败")
 		return map[string]interface{}{
 			"success": false,
-			"error":   "创建远程文件失败: " + err.Error(),
-			"output":  output,
+			"error":   "创建SCP客户端失败: " + err.Error(),
 		}
 	}
+	defer scpClient.Close()
 
-	runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, "80|验证文件完整性...")
-	// 验证文件是否上传成功
-	verifyCmd := fmt.Sprintf("[ -f '%s' ] && echo 'success' || echo 'failed'", remoteFilePath)
-	verifyOutput, err := ExecuteBackendCommand(verifyCmd, sessionId)
-	if err != nil || strings.TrimSpace(verifyOutput) != "success" {
-		runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, "1|错误：文件验证失败")
+	// 上传文件
+	err = scpClient.CopyFile(appCtx, file, remoteFilePath, "0644")
+	if err != nil {
 		return map[string]interface{}{
 			"success": false,
-			"error":   "文件验证失败: " + verifyOutput,
+			"error":   "SCP上传失败: " + err.Error(),
 		}
 	}
 
-	// 获取远程文件大小验证
-	sizeCmd := fmt.Sprintf("stat -c %%s '%s'", remoteFilePath)
-	remoteSizeOutput, err := ExecuteBackendCommand(sizeCmd, sessionId)
-	if err == nil {
-		remoteSize, _ := strconv.ParseInt(strings.TrimSpace(remoteSizeOutput), 10, 64)
-		if remoteSize != fileSize {
-			runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, "90|警告：文件大小不一致，重新验证...")
-			// 可以在这里添加重试逻辑
-		}
-	}
-
-	runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, "95|文件上传成功")
+	runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, "100|文件上传成功(SCP)")
 	return map[string]interface{}{
 		"success":    true,
 		"localFile":  localFilePath,
 		"remoteFile": remoteFilePath,
 		"fileSize":   fileSize,
+		"method":     "scp",
 		"uploadedAt": time.Now().Format(time.RFC3339),
 	}
+}
+
+// 分块上传（备用方案）
+func uploadWithChunks(localFilePath, remoteFilePath, sessionId string, fileSize int64) map[string]interface{} {
+	runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, "60|开始分块上传...")
+
+	file, err := os.Open(localFilePath)
+	if err != nil {
+		return map[string]interface{}{
+			"success": false,
+			"error":   "打开文件失败: " + err.Error(),
+		}
+	}
+	defer file.Close()
+
+	// 创建空文件
+	initCmd := fmt.Sprintf("> '%s'", remoteFilePath)
+	if _, err := ExecuteBackendCommand(initCmd, sessionId); err != nil {
+		return map[string]interface{}{
+			"success": false,
+			"error":   "初始化文件失败: " + err.Error(),
+		}
+	}
+
+	chunkSize := int64(1 * 1024 * 1024) // 1MB分块
+	buffer := make([]byte, chunkSize)
+	var offset int64 = 0
+	chunkNumber := 0
+
+	for offset < fileSize {
+		chunkNumber++
+		bytesRead, err := file.Read(buffer)
+		if err != nil && err != io.EOF {
+			return map[string]interface{}{
+				"success": false,
+				"error":   fmt.Sprintf("读取第%d块失败: %v", chunkNumber, err),
+			}
+		}
+
+		if bytesRead == 0 {
+			break
+		}
+
+		// 更新进度
+		progress := 60 + int((float64(offset)/float64(fileSize))*35)
+		runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId,
+			fmt.Sprintf("%d|上传第%d块...", progress, chunkNumber))
+
+		chunkData := buffer[:bytesRead]
+		encodedChunk := base64.StdEncoding.EncodeToString(chunkData)
+
+		// 使用Python处理每个块
+		pythonChunkCmd := fmt.Sprintf(`python3 -c "
+import base64
+import sys
+try:
+    encoded_data = '%s'
+    decoded_data = base64.b64decode(encoded_data)
+    with open('%s', 'ab') as f:
+        f.write(decoded_data)
+    print('success')
+except Exception as e:
+    print('error: ' + str(e))
+    sys.exit(1)
+"`, encodedChunk, remoteFilePath)
+
+		output, err := ExecuteBackendCommand(pythonChunkCmd, sessionId)
+		if err != nil {
+			return map[string]interface{}{
+				"success": false,
+				"error":   fmt.Sprintf("上传第%d块失败: %v", chunkNumber, err),
+				"output":  output,
+			}
+		}
+
+		offset += int64(bytesRead)
+	}
+
+	runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, "100|文件上传成功(分块)")
+	return map[string]interface{}{
+		"success":    true,
+		"localFile":  localFilePath,
+		"remoteFile": remoteFilePath,
+		"fileSize":   fileSize,
+		"chunks":     chunkNumber,
+		"method":     "chunked",
+		"uploadedAt": time.Now().Format(time.RFC3339),
+	}
+}
+
+// 辅助函数：格式化文件大小
+func formatFileSizeCusK(size int64) string {
+	const unit = 1024
+	if size < unit {
+		return fmt.Sprintf("%d B", size)
+	}
+	div, exp := int64(unit), 0
+	for n := size / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
 }
 
 // 上传整个目录（带进度）
