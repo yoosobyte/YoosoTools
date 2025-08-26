@@ -68,22 +68,18 @@ func decodeGBK(s []byte) string {
 	}
 	return string(d)
 }
-func getLocalIP() (string, error) {
-	addrs, err := net.InterfaceAddrs()
+
+func GetOutboundIP() (string, error) {
+	// 随便连一个公网地址即可触发出网路由
+	conn, err := net.Dial("udp4", "8.8.8.8:80")
 	if err != nil {
 		return "", err
 	}
+	defer conn.Close()
 
-	for _, addr := range addrs {
-		// 检查是否为 IPv4 地址
-		if ipNet, ok := addr.(*net.IPNet); ok && !ipNet.IP.IsLoopback() {
-			if ipNet.IP.To4() != nil {
-				return ipNet.IP.String(), nil
-			}
-		}
-	}
-
-	return "", fmt.Errorf("no non-loopback IPv4 address found")
+	// LocalAddr() 就是本机在那张网卡上的地址
+	ip := conn.LocalAddr().(*net.UDPAddr).IP
+	return ip.String(), nil
 }
 
 func GetIpInfo() string {
@@ -92,7 +88,7 @@ func GetIpInfo() string {
 		fmt.Println("请求失败结果:", resp)
 		return `{"ret":"ok","err":"` + resp + `","data":{"ip":"x.x.x.x","localIp":"x.x.x.x","location":["国家","省份","市区","","运营商"]}}`
 	}
-	localIp, err := getLocalIP()
+	localIp, err := GetOutboundIP()
 	if err != nil {
 		return `{"ret":"ok","err":"本地IP获取异常","data":{"ip":"x.x.x.x","localIp":"x.x.x.x","location":["国家","省份","市区","","运营商"]}}`
 	}
@@ -164,34 +160,76 @@ func getRemoteIP() (int, string) {
 	return code, resp
 }
 
-// 探测本机外网 IP 并广播
-func sendMyExternalIP() {
+// sendMyExternalIP 把公网 IP 发到局域网广播地址
+func sendMyExternalIP() error {
+	// 1. 拿到公网 IP（你已有的 getRemoteIP）
 	_, resp := getRemoteIP()
-	// 只取 IP 字段即可
 	var data map[string]interface{}
 	if err := json.Unmarshal([]byte(resp), &data); err != nil {
-		return
+		return err
 	}
-	ip := ""
-	if d, ok := data["data"].(map[string]interface{}); ok {
-		ip, _ = d["ip"].(string)
-	}
+	ip, _ := data["data"].(map[string]interface{})["ip"].(string)
 	if ip == "" {
-		return
+		return fmt.Errorf("no ip in response")
 	}
+
+	// 2. 拿到本机连路由器的 IPv4
+	localIPStr, err := GetOutboundIP()
+	if err != nil {
+		return fmt.Errorf("get local ip: %w", err)
+	}
+	localIP := net.ParseIP(localIPStr).To4()
+	if localIP == nil {
+		return fmt.Errorf("invalid local ip")
+	}
+
+	// 3. 找到这块网卡的广播地址
+	bcast, err := broadcastForIP(localIP)
+	if err != nil {
+		return fmt.Errorf("get broadcast: %w", err)
+	}
+
+	// 4. 组装数据
 	payload := map[string]string{"ip": ip}
 	b, _ := json.Marshal(payload)
 
-	// 向广播地址发包
-	conn, err := net.DialUDP("udp4", nil, &net.UDPAddr{
-		IP:   net.IPv4bcast, // 这才是广播地址
-		Port: udpPort,
-	})
+	// 5. 明确从 localIP 发到本网段广播地址
+	conn, err := net.DialUDP("udp4",
+		&net.UDPAddr{IP: localIP, Port: 0}, // 源地址
+		&net.UDPAddr{IP: bcast, Port: udpPort})
 	if err != nil {
-		return
+		return fmt.Errorf("dial udp: %w", err)
 	}
 	defer conn.Close()
-	conn.Write(b)
+
+	_, err = conn.Write(b)
+	return err
+}
+
+// broadcastForIP 根据本地 IPv4 计算本网段广播地址
+func broadcastForIP(ip net.IP) (net.IP, error) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil, err
+	}
+	for _, iface := range ifaces {
+		addrs, _ := iface.Addrs()
+		for _, a := range addrs {
+			ipNet, ok := a.(*net.IPNet)
+			if !ok || ipNet.IP.To4() == nil {
+				continue
+			}
+			if ipNet.Contains(ip) {
+				mask := ipNet.Mask
+				bcast := make(net.IP, 4)
+				for i := 0; i < 4; i++ {
+					bcast[i] = ipNet.IP.To4()[i] | ^mask[i]
+				}
+				return bcast, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("no matching interface")
 }
 
 // 把 listenLoop() 里写 PeerBox

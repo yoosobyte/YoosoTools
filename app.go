@@ -8,7 +8,9 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"runtime/debug"
 
+	"github.com/getlantern/systray"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -20,6 +22,9 @@ func NewApp() *App {
 	return &App{}
 }
 
+//go:embed go_src/config/app.ico
+var trayIcon []byte
+
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 
@@ -28,7 +33,32 @@ func (a *App) startup(ctx context.Context) {
 	// 2.初始化IP广播
 	controller.StartUDPBroadcastAll(ctx)
 	// 3.初始化系统托盘（内部用 sync.Once 保证只跑一次）
-	go config.InitTray(ctx)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Printf("systray panic: %v\n%s", r, debug.Stack())
+			}
+		}()
+
+		systray.Run(func() {
+			systray.SetIcon(trayIcon)
+			systray.SetTitle("GoTools")
+			systray.SetTooltip("GoTools")
+
+			mShow := systray.AddMenuItem("显示窗口", "")
+			mQuit := systray.AddMenuItem("退出", "")
+
+			// 事件循环：永不 return
+			for {
+				select {
+				case <-mShow.ClickedCh:
+					runtime.WindowShow(a.ctx) // wails 2.x 已线程安全
+				case <-mQuit.ClickedCh:
+					runtime.Quit(a.ctx)
+				}
+			}
+		}, nil)
+	}()
 	// 4.初始化数据库
 	go func() {
 		if err := config.InitDB(); err != nil {
@@ -36,7 +66,6 @@ func (a *App) startup(ctx context.Context) {
 		}
 	}()
 }
-
 func (a *App) SelectFolder(field string) string {
 	// 使用 Wails 的运行时打开文件夹选择对话框
 	folderPath, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{

@@ -32,26 +32,24 @@ getInitData('0');
 
 function getInitData (code) {
   reqLoading.value = true
-  setTimeout(() => {
-    window.go.main.App.GetIpInfo().then((resp)=>{
-      const newData = JSON.parse(resp);
-      newData.data.ipList.sort((a, b) => {
-        // IPv4 按点分十进制可直接用 localeCompare 升序
-        return a.localIp.localeCompare(b.localIp);
-      });
-      Object.assign(form,newData)
-      reqLoading.value = false
-      if(code==='1'){
-        ElMessage.info('已重新获取IP')
-      }
-    }).catch(err=>{
-      reqLoading.value = false
-      if(code==='1'){
-        ElMessage.warning('获取URL请求异常,请刷新')
-      }
-      getInitData('0');
-    })
-  },300)
+  window.go.main.App.GetIpInfo().then((resp)=>{
+    const newData = JSON.parse(resp);
+    newData.data.ipList.sort((a, b) => {
+      // IPv4 按点分十进制可直接用 localeCompare 升序
+      return a.localIp.localeCompare(b.localIp);
+    });
+    Object.assign(form,newData)
+    reqLoading.value = false
+    if(code==='1'){
+      ElMessage.info('已重新获取IP')
+    }
+  }).catch(err=>{
+    reqLoading.value = false
+    if(code==='1'){
+      ElMessage.warning('获取URL请求异常,请刷新')
+    }
+    getInitData('0');
+  })
 }
 function getAddr(type){
   let addrList = form.data.location
