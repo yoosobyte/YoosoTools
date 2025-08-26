@@ -1,0 +1,29 @@
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.2",
+    "@wailsapp/runtime": "^1.1.1",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-search": "^0.15.0",
+    "@xterm/addon-web-links": "^0.11.0",
+    "ansi-to-html": "^0.7.2",
+    "element-plus": "^2.10.7",
+    "mitt": "^3.0.1",
+    "pinia": "^3.0.3",
+    "vue": "^3.2.37",
+    "vue-json-pretty": "^2.5.0",
+    "xterm": "^5.3.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^3.0.3",
+    "vite": "^3.0.7"
+  }
+}
