@@ -109,7 +109,7 @@ const connectServer = async () => {
     )
     if (resp === 'success') {
       isConnected.value = true
-      ElMessage.success('连接成功')
+      // ElMessage.success('连接成功')
       terminal!.write('\r\n\x1B[32m✓ 连接成功！\x1B[0m\r\n\r\n')
     } else {
       ElMessage.error(resp)

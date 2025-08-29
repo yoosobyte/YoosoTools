@@ -27,11 +27,19 @@ const props = defineProps<{ server: Server }>()
       <el-menu-item index="1">
         <el-icon><Terminal /></el-icon>
 
-        <template #title>终端</template>
+        <template #title>
+          <span class="cant-select">
+            终端
+          </span>
+        </template>
       </el-menu-item>
       <el-menu-item index="2">
         <el-icon><Files /></el-icon>
-        <template #title>目录</template>
+        <template #title>
+          <span class="cant-select">
+            目录
+          </span>
+        </template>
       </el-menu-item>
     </el-menu>
 
@@ -70,5 +78,8 @@ const props = defineProps<{ server: Server }>()
 .content {
   flex-grow: 1; /* 内容区域填充剩余空间 */
   padding: 0 0 0 0; /* 可选：添加内边距 */
+}
+.cant-select {
+  cursor: pointer;user-select: none;
 }
 </style>

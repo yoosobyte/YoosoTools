@@ -465,14 +465,14 @@ const setupFileDropListener = () => {
       <el-button plain type="" @click="pasteCut" v-if="cutDir!==''" :icon="DocumentChecked">粘贴到此目录(剪切)</el-button>
       <div style="margin-left: 10px;" v-show="uploadRate > 0 && uploadRate < 100">
         <el-tag closable type="info" size="large">
-          <div>
+          <div class="cant-select">
             上传进度 :&nbsp;&nbsp;&nbsp;{{uploadRate}}% | {{uploadMsg}}}
           </div>
         </el-tag>
       </div>
       <div style="margin-left: 10px;" v-show="downloadRate > 0 && downloadRate < 100">
         <el-tag type="info" size="large">
-          <div>
+          <div class="cant-select">
             下载进度 :&nbsp;&nbsp;&nbsp;{{downloadRate}}%
           </div>
         </el-tag>
@@ -626,5 +626,8 @@ const setupFileDropListener = () => {
 }
 .fileBg{
   background-color: #f3f3f3;
+}
+.cant-select {
+  cursor: pointer;user-select: none;
 }
 </style>

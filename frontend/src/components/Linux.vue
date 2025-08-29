@@ -68,14 +68,18 @@ const handleTabRemove = (sessionId) => {
       <template #label>
         <div class="row-center">
           <el-icon><HomeFilled /></el-icon>
-          <div slot="label">主页</div>
+          <div slot="label" class="cant-select">主页</div>
         </div>
       </template>
       <ServerList/>
     </el-tab-pane>
 
     <el-tab-pane v-for="(item,index) in tabList" :name="item.sessionId" :closable="true">
-      <template #label>{{item.serverNickName}}</template>
+      <template #label>
+        <span class="cant-select">
+          {{item.serverNickName}}
+        </span>
+      </template>
       <ServerItem :server="item"/>
     </el-tab-pane>
 
@@ -89,5 +93,8 @@ const handleTabRemove = (sessionId) => {
 }
 .my-linux-tab :deep(.el-tabs__content) {
   padding: 0;
+}
+.cant-select {
+  cursor: pointer;user-select: none;
 }
 </style>
