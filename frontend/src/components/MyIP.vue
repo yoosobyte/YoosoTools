@@ -134,8 +134,8 @@ function postRadio (){
                     <el-button type="info" text size="small" @click="copyIp(item.localIp)">复制</el-button>
                   </div>
                   <div class="new-space" style="width: 20%;text-align: center;display:flex;justify-content: center;">
-                    <el-divider style="width: 50px;" class="new-divider">
-                      <el-icon style="color:#73767A;background-color: #e9e9eb;"><star-filled /></el-icon>
+                    <el-divider style="width: 55px;" class="new-divider">
+                      <el-icon style="color:#73767A;background-color: #f4f4f5;"><star-filled /></el-icon>
                     </el-divider>
                   </div>
                   <div style="text-align: start;color:#409EFF;width: 30%;">{{item.remoteIp}}</div>
