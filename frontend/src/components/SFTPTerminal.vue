@@ -89,10 +89,15 @@ function openDir(dir){
   if(dir.isFolder === 1){
     changeNowDir(dir.fullPath)
   }else{
-    ElMessageBox.confirm(`是否下载文件${dir.fileName},大小:${dir.fileSize}?`,'提示',{
+    ElMessageBox.confirm('','是否下载',{
       confirmButtonText: '确定',
       cancelButtonText: '取消',
+      dangerouslyUseHTMLString: true,
       type: 'info',
+      message: `
+      <div style="line-height: 1.5;">
+        <div>文件:<strong>${dir.fileName}</strong> | 大小:<strong>${dir.fileSize}</strong></div>
+      </div>`
     }).then(() => {
       downloadFile(dir.fullPath)
     }).catch(() => {
@@ -145,7 +150,7 @@ const downloadFile = async (filePath) => {
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
 
-    ElMessage.success('下载成功')
+    //ElMessage.success('下载成功')
 
   } catch (error) {
     console.error('下载失败:', error)
@@ -172,14 +177,19 @@ function clickDownload(dir){
   if(dir.isFolder === 1){
     ElMessage.info('下载文件夹建设中,敬请期待')
   }else{
-    ElMessageBox.confirm(`是否下载文件${dir.fileName},大小:${dir.fileSize}?`,'提示',{
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'info',
-    }).then(() => {
-      downloadFile(dir.fullPath)
-    }).catch(() => {
-    })
+    downloadFile(dir.fullPath)
+    // ElMessageBox.confirm('','是否下载',{
+    //   confirmButtonText: '确定',
+    //   cancelButtonText: '取消',
+    //   dangerouslyUseHTMLString: true,
+    //   message: `
+    //   <div style="line-height: 1.5;">
+    //     <div>文件:<strong>${dir.fileName}</strong></div>
+    //     <div>大小:<strong>${dir.fileSize}</strong></div>
+    //   </div>`
+    // }).then(() => {
+    // }).catch(() => {
+    // })
   }
 }
 
@@ -227,7 +237,7 @@ function renameFolderOrFile(dir){
     message: `
     <div style="line-height: 1.5;">
       <div>即将重命名: <strong>${dir.fileName}</strong></div>
-      <div>请给文件/夹起个名字</div>
+      <div>请给文件/夹起个名字: </div>
     </div>
   `
   }).then(({ value }) => {
@@ -262,7 +272,7 @@ function pasteCopy(){
     <div style="line-height: 1.5;">
       <div>您复制了: <strong>${copyDir.value}</strong></div>
       <div>将复制到目录: <strong>${nowDir.value}</strong></div>
-      <div>请给文件/夹起个名字</div>
+      <div>请给文件/夹起个名字: </div>
     </div>
   `
   }).then(({ value }) => {
@@ -300,7 +310,7 @@ function pasteCut(){
     <div style="line-height:1.6;">
       <div>您剪切了：<strong>${cutDir.value}</strong></div>
       <div>将剪切到目录：<strong>${nowDir.value}</strong></div>
-      <div>请给文件/夹起个名字：</div>
+      <div>请给文件/夹起个名字: </div>
     </div>
   `
   }).then(({ value }) => {
