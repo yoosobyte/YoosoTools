@@ -32,9 +32,16 @@ var (
 
 func PingURL(url string) (int, string) {
 	client := http.Client{
-		Timeout: 20 * time.Second, // 设置超时时间
+		Timeout: 20 * time.Second,
 	}
-	resp, err := client.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return 0, err.Error()
+	}
+	// 加上这两个禁用缓存的请求头
+	req.Header.Set("Cache-Control", "no-cache")
+	req.Header.Set("Pragma", "no-cache")
+	resp, err := client.Do(req)
 	if err != nil {
 		return 0, err.Error()
 	}
@@ -103,22 +110,6 @@ func GetIpInfo() string {
 	if dataMap, ok := data["data"].(map[string]interface{}); ok {
 		// 插入新的键值对
 		dataMap["localIp"] = localIp
-		peerData := GetPeerIPs()
-		var ips []map[string]string
-		for _, v := range peerData {
-			var tmp map[string]interface{}
-			if err := json.Unmarshal([]byte(v), &tmp); err == nil {
-				from, _ := tmp["from"].(string)
-				ip, _ := tmp["ip"].(string)
-
-				innerTmp := map[string]string{
-					"localIp":  from,
-					"remoteIp": ip,
-				}
-				ips = append(ips, innerTmp)
-			}
-		}
-		dataMap["ipList"] = ips
 	}
 	// 将更新后的数据重新编码为 JSON 字符串
 	updatedJsonStr, err := json.MarshalIndent(data, "", "  ")
@@ -151,10 +142,17 @@ func getRemoteIP() (int, string) {
 	resp := IPBox[time.Now().Format("15:04")]
 	if resp != "" {
 		code = 200
+		fmt.Println("获取远程IP_读缓存:", resp)
 	} else {
 		code, resp = PingURL("https://myip.ipip.net/json")
-		if !strings.Contains(resp, "err") {
-			IPBox[time.Now().Format("15:04")] = resp
+		fmt.Println("获取远程IP_新请求:", resp)
+		var data map[string]interface{}
+		// 解析 JSON 字符串
+		err1 := json.Unmarshal([]byte(resp), &data)
+		if err1 == nil {
+			if data["ret"] == "ok" {
+				IPBox[time.Now().Format("15:04")] = resp
+			}
 		}
 	}
 	return code, resp
@@ -306,6 +304,28 @@ func GetPeerIPs() map[string]string {
 }
 
 func PostRadio() string {
-	sendMyExternalIP()
+	err := sendMyExternalIP()
+	if err != nil {
+		fmt.Println("send my external ip err:", err)
+	}
 	return entity.SuccessStr()
+}
+
+func GetRadioIpList() string {
+	peerData := GetPeerIPs()
+	var ips []map[string]string
+	for _, v := range peerData {
+		var tmp map[string]interface{}
+		if err := json.Unmarshal([]byte(v), &tmp); err == nil {
+			from, _ := tmp["from"].(string)
+			ip, _ := tmp["ip"].(string)
+
+			innerTmp := map[string]string{
+				"localIp":  from,
+				"remoteIp": ip,
+			}
+			ips = append(ips, innerTmp)
+		}
+	}
+	return entity.SuccessOnlyDataStr(ips)
 }

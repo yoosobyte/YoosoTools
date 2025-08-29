@@ -138,8 +138,8 @@ func buildSession(server Server, rows, cols int) (*SessionData, string) {
 	}, ""
 }
 
-// getSession 只读索引
-func getSession(id string) (*SessionData, bool) {
+// GetSession 只读索引
+func GetSession(id string) (*SessionData, bool) {
 	sessionsIndex.RLock()
 	sd := sessions[id]
 	sessionsIndex.RUnlock()
@@ -165,7 +165,7 @@ func delSession(id string) *SessionData {
 // 新增：原始字节流透传
 func SendRaw(data string, sessionId string) error {
 	fmt.Println("透传内容:", data)
-	sd, ok := getSession(sessionId)
+	sd, ok := GetSession(sessionId)
 	if !ok {
 		return fmt.Errorf("session not found")
 	}
@@ -185,7 +185,7 @@ func SendNormal(input string, sessionId string) string {
 
 // UpInput 内部逻辑保持不变，仅函数名变了
 func UpInput(input string, sessionId string) string {
-	sd, ok := getSession(sessionId)
+	sd, ok := GetSession(sessionId)
 	if !ok {
 		return "error: 未连接或连接已断开"
 	}
@@ -201,7 +201,7 @@ func UpInput(input string, sessionId string) string {
 
 // upOut 持续读取远端输出并透传前端，同时解析 OSC 777 提取 CWD
 func upOut(sessionId string) {
-	sd, ok := getSession(sessionId)
+	sd, ok := GetSession(sessionId)
 	if !ok {
 		return
 	}
@@ -315,7 +315,7 @@ func ExecuteBackendCommand(cmd string, sessionId string) (string, error) {
 
 func SendResize(rows int, cols int, sessionId string) error {
 	fmt.Println("Resize:", rows, cols, sessionId)
-	sd, ok := getSession(sessionId)
+	sd, ok := GetSession(sessionId)
 	if !ok {
 		return fmt.Errorf("no session")
 	}

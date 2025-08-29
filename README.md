@@ -1,9 +1,24 @@
 # YoosoTools
-> 专为开发者打造的「瑞士军刀」式桌面工具集
+> 专为开发者打造的「瑞士军刀」式桌面工具
+> 集
 
 ## 🧩 一句话简介
 把日常最琐碎、最容易踩坑的运维 / 开发操作，全部做成“点一下就好”的图形化小工具。
 
+---
+
+## 🧩 软件截图展示
+![ip.png](images/ip.png)
+![killport.png](images/killport.png)
+![jsonparse.png](images/jsonparse.png)
+![ssh_list.png](images/ssh_list.png)
+![ssh_tra.png](images/ssh_tra.png)
+![ssh_sftp.png](images/ssh_sftp.png)
+![build.png](images/build.png)
+定制版信息
+![build_set.png](images/build_set.png)
+![build_run.png](images/build_run.png)
+![auto_update.png](images/auto_update.png)
 ---
 
 ## 📦 当前功能速览

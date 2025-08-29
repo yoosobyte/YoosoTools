@@ -87,7 +87,9 @@ const handleKeyDown = (e) => {
         </el-form-item>
         <el-form-item>
           <div style="display: flex;align-items: center;width: 100%;">
-            <el-button style="width: 100%;" size="large" type="primary" @click="saveSet">kill by port</el-button>
+            <el-button style="width: 100%;" size="large" type="primary" @click="saveSet">
+              <span style="font-family: 'Times','Times New Roman',serif;font-size: 20px;">Start execution</span>
+            </el-button>
           </div>
         </el-form-item>
         <el-form-item>

@@ -39,10 +39,12 @@ func main() {
 		Bind: []interface{}{
 			app,
 		},
-		// 开发模式配置
-		//Debug: options.Debug{
-		//	OpenInspectorOnStartup: false, // 启动时自动打开开发者工具
-		//},
+		DragAndDrop: &options.DragAndDrop{
+			EnableFileDrop: true,
+		},
+		Debug: options.Debug{
+			OpenInspectorOnStartup: true, // 启动时自动打开开发者工具
+		},
 	})
 
 	if err != nil {

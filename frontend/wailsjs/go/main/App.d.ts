@@ -17,6 +17,8 @@ export function GetListServer():Promise<string>;
 
 export function GetOneServer(arg1:number):Promise<string>;
 
+export function GetRadioIpList():Promise<string>;
+
 export function KillPort(arg1:string):Promise<string>;
 
 export function MoveOrCopyFolderAndFile(arg1:string,arg2:string,arg3:string,arg4:string,arg5:number):Promise<string>;

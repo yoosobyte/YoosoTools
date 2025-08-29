@@ -9,8 +9,6 @@ import (
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 )
 
-const YoosoToolsDir = `D:\soft\YoosoTools`
-
 func SaveFile(params map[string]interface{}) string {
 	name := params["name"].(string)
 	data := params["data"].([]interface{})

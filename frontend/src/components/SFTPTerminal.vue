@@ -4,7 +4,7 @@ import {
   FolderOpened, More, Promotion, Refresh,
   RefreshLeft,  Upload
 } from "@element-plus/icons-vue";
-import {reactive, ref} from "vue";
+import {onMounted, reactive, ref} from "vue";
 import {Server} from "../types/server";
 import {PathItem} from "../types/path-item";
 import { ElMessage, ElMessageBox, ElNotification} from "element-plus";
@@ -13,7 +13,7 @@ import {AddFile, NewAddFile} from "../types/sftp";
 const props = defineProps<{ server: Server }>()
 const sessionId = ref<string>(props.server.sessionId)
 const findIng = ref(false)
-const followSSHDir = ref(false)
+const followSSHDir = ref(true)
 const nowDir = ref('/');
 const nowSSHDir = ref('');
 const copyDir = ref('');
@@ -25,7 +25,10 @@ const formRef = ref(null)
 const uploadRate = ref(0)
 const uploadMsg = ref('')
 const downloadRate = ref(0)
-postNewPath(1);
+
+if(!followSSHDir.value){
+  postNewPath(1);
+}
 
 function postNewPath(isInit){
   findIng.value = true;
@@ -78,6 +81,8 @@ function changeFollowSwitch(){
 
 function refreshDir(){
   ElMessage.info('目录已刷新')
+  copyDir.value = ''
+  cutDir.value = ''
   postNewPath(1);
 }
 function openDir(dir){
@@ -209,13 +214,22 @@ function cutFolderOrFile(dir){
   ElMessage.success('文件/夹已剪切,请转至要粘贴的位置,并点击[粘贴到此目录(剪切)]')
 }
 function renameFolderOrFile(dir){
-  ElMessageBox.prompt(`即将重命名[${dir.fileName}],请给文件/夹起个名字`, '提示', {
+  const oldName = dir.fileName || '';
+  ElMessageBox.prompt('', '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     inputPattern: /^[\u4e00-\u9fa5a-zA-Z0-9._-]+$/,
     inputErrorMessage: '只允许中文、英文、数字、英文点、下划线和连字符',
     closeOnClickModal: false,
     closeOnPressEscape: false,
+    dangerouslyUseHTMLString: true,
+    inputValue: oldName,
+    message: `
+    <div style="line-height: 1.5;">
+      <div>即将重命名: <strong>${dir.fileName}</strong></div>
+      <div>请给文件/夹起个名字</div>
+    </div>
+  `
   }).then(({ value }) => {
     window.go.main.App.RenameFolderOrFile(dir.fullPath,value,sessionId.value).then((data) => {
       const result = JSON.parse(data);
@@ -231,48 +245,84 @@ function renameFolderOrFile(dir){
 }
 
 function pasteCopy(){
-  ElMessageBox.prompt(`您复制了[${copyDir.value}],将复制到目录[${nowDir.value}],请给文件/夹起个名字`, '提示', {
+  // 提取旧文件名
+  const oldName = copyDir.value.split(/[/\\]/).pop() || '';
+
+  ElMessageBox.prompt('', '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     inputPattern: /^[\u4e00-\u9fa5a-zA-Z0-9._-]+$/,
     inputErrorMessage: '只允许中文、英文、数字、英文点、下划线和连字符',
     closeOnClickModal: false,
     closeOnPressEscape: false,
+    dangerouslyUseHTMLString: true,
+    // 关键：把旧文件名作为默认值
+    inputValue: oldName,
+    message: `
+    <div style="line-height: 1.5;">
+      <div>您复制了: <strong>${copyDir.value}</strong></div>
+      <div>将复制到目录: <strong>${nowDir.value}</strong></div>
+      <div>请给文件/夹起个名字</div>
+    </div>
+  `
   }).then(({ value }) => {
-    window.go.main.App.MoveOrCopyFolderAndFile(nowDir.value,copyDir.value,value,sessionId.value,1).then((data) => {
+    window.go.main.App.MoveOrCopyFolderAndFile(
+        nowDir.value,
+        copyDir.value,
+        value,
+        sessionId.value,
+        1
+    ).then((data) => {
       const result = JSON.parse(data);
-      if(result.code === 200){
+      if (result.code === 200) {
         changeNowDir(nowDir.value);
-        copyDir.value = ''
-        ElMessage.success('文件/夹已粘贴')
-      }else{
-        ElMessage.error(result.msg)
+        copyDir.value = '';
+        ElMessage.success('文件/夹已粘贴');
+      } else {
+        ElMessage.error(result.msg);
       }
-    })
-  }).catch(() => {
-  });
+    });
+  }).catch(() => {});
 }
 function pasteCut(){
-  ElMessageBox.prompt(`您剪切了[${cutDir.value}],将剪切到目录[${nowDir.value}],请给文件/夹起个名字`, '提示', {
+  const oldName = cutDir.value.split(/[/\\]/).pop() || '';
+
+  ElMessageBox.prompt('', '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     inputPattern: /^[\u4e00-\u9fa5a-zA-Z0-9._-]+$/,
     inputErrorMessage: '只允许中文、英文、数字、英文点、下划线和连字符',
     closeOnClickModal: false,
     closeOnPressEscape: false,
+    inputValue: oldName,
+    dangerouslyUseHTMLString: true,
+    message: `
+    <div style="line-height:1.6;">
+      <div>您剪切了：<strong>${cutDir.value}</strong></div>
+      <div>将剪切到目录：<strong>${nowDir.value}</strong></div>
+      <div>请给文件/夹起个名字：</div>
+    </div>
+  `
   }).then(({ value }) => {
-    window.go.main.App.MoveOrCopyFolderAndFile(nowDir.value,cutDir.value,value,sessionId.value,0).then((data) => {
-      const result = JSON.parse(data);
-      if(result.code === 200){
-        changeNowDir(nowDir.value);
-        cutDir.value = ''
-        ElMessage.success('文件/夹已粘贴')
-      }else{
-        ElMessage.error(result.msg)
-      }
-    })
-  }).catch(() => {
-  });
+    window.go.main.App
+        .MoveOrCopyFolderAndFile(
+            nowDir.value,
+            cutDir.value,
+            value,
+            sessionId.value,
+            0
+        )
+        .then((data) => {
+          const result = JSON.parse(data);
+          if (result.code === 200) {
+            changeNowDir(nowDir.value);
+            cutDir.value = '';
+            ElMessage.success('文件/夹已粘贴');
+          } else {
+            ElMessage.error(result.msg);
+          }
+        });
+  }).catch(() => {});
 }
 function removeFolderOrFile(dir){
   ElMessageBox.confirm(`是否删除文件${dir.isFolder?'夹':''}:${dir.fileName},大小:${dir.fileSize}?`,'提示',{
@@ -365,6 +415,29 @@ const UploadDirOrFile = async () => {
     }
   })
 }
+onMounted(() => {
+  setupFileDropListener();
+})
+const setupFileDropListener = () => {
+  //v1,v2API冲突,这个不能删
+  window.runtime.OnFileDrop((x, y, paths) => {
+    // ElMessage.success("文件拖放事件1:"+paths)
+    // console.log('文件拖放事件:', paths, '位置:', x, y);
+  }, true);
+  window.runtime.EventsOn("wails:file-drop", (x, y, paths) => {
+    ElMessage.success("开始上传,文件/夹:"+paths.length +"个")
+    for (const [index, path] of paths.entries()) {
+      window.go.main.App.UploadDirOrFile(nowDir.value,path,sessionId.value).then((resultStr)=>{
+        const result = JSON.parse(resultStr)
+        if (result.code === 200) {
+          changeNowDir(nowDir.value);
+        }else{
+          console.error(result.msg);
+        }
+      });
+    }
+  });
+};
 </script>
 <template>
   <div class="sftp-container">
@@ -377,7 +450,7 @@ const UploadDirOrFile = async () => {
       <el-button plain type="" :icon="FolderAdd" @click="newFolder">新建文件夹</el-button>
       <el-button plain type="" :icon="DocumentAdd" @click="newFile">新建文件</el-button>
       <el-button plain type="" :icon="Refresh" @click="refreshDir">刷新</el-button>
-      <el-button plain type="" :icon="Upload" @click="UploadDirOrFile">上传到此目录</el-button>
+      <el-button plain type="" :icon="Upload" @click="UploadDirOrFile">上传到此目录(支持拖动)</el-button>
       <el-button plain type="" @click="pasteCopy" v-if="copyDir!==''" :icon="DocumentChecked">粘贴到此目录(复制)</el-button>
       <el-button plain type="" @click="pasteCut" v-if="cutDir!==''" :icon="DocumentChecked">粘贴到此目录(剪切)</el-button>
       <div style="margin-left: 10px;" v-show="uploadRate > 0 && uploadRate < 100">
@@ -388,7 +461,7 @@ const UploadDirOrFile = async () => {
         </el-tag>
       </div>
       <div style="margin-left: 10px;" v-show="downloadRate > 0 && downloadRate < 100">
-        <el-tag closable type="info" size="large">
+        <el-tag type="info" size="large">
           <div>
             下载进度 :&nbsp;&nbsp;&nbsp;{{downloadRate}}%
           </div>
@@ -405,22 +478,32 @@ const UploadDirOrFile = async () => {
         </div>
       </el-card>
       <div v-for="(item, index) in nowFileList" :key="index" style="position: relative;">
-        <el-card shadow="hover" class="a-center card-height" @dblclick="openDir(item)">
+        <el-card shadow="hover" class="a-center card-height" :class="item.isFolder?'folderBg':'fileBg'" @dblclick="openDir(item)">
           <div>
             <div class="a-center a-row">
               <el-icon class="" size="50" v-if="item.isFolder === 1"><FolderOpened /></el-icon>
               <el-icon class="" size="50" v-if="item.isFolder === 0"><Document /></el-icon>
-              <div class="title-text ellipsis" style="font-weight: normal;font-size: 15px;">
-                {{item.fileName}}
-              </div>
+              <el-tooltip
+                  ref="tooltipRef"
+                  class="box-item"
+                  transition=""
+                  effect="dark"
+                  :content="item.fileName"
+                  placement="bottom"
+                  :disabled="item.fileName.length <=13"
+              >
+                <div class="title-text ellipsis" style="font-weight: normal;font-size: 15px;">
+                  {{item.fileName}}
+                </div>
+              </el-tooltip>
               <div class="title-text unchose-color" style="font-weight: normal;font-size: 13px;margin-top: 1px;">
                 {{item.editTime}}
               </div>
             </div>
-            <div style="position: absolute;bottom: -8px;right: 8px;z-index: 10">
+            <div style="position: absolute;bottom: -7px;right: 0;z-index: 10">
               <el-dropdown placement="bottom-start" trigger="click">
                 <span class="el-dropdown-link">
-                  <el-icon class="unchose-color">
+                  <el-icon class="unchose-color" style="padding: 1px 8px;">
                     <More />
                   </el-icon>
                 </span>
@@ -453,10 +536,10 @@ const UploadDirOrFile = async () => {
           size="default"
           :rules="rules"
       >
-        <el-form-item label="新文件文件名" prop="fileName">
+        <el-form-item label="文件名" prop="fileName">
           <el-input v-model="newFileForm.fileName" placeholder="请输入新文件文件名"/>
         </el-form-item>
-        <el-form-item label="新文件内容" prop="fileContent">
+        <el-form-item label="内容" prop="fileContent">
           <el-input v-model="newFileForm.fileContent"  type="textarea" :rows="8" placeholder="请输入新文件内容"/>
         </el-form-item>
       </el-form>
@@ -526,6 +609,12 @@ const UploadDirOrFile = async () => {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  max-width: 145px; /* 指定最大宽度 */
+  max-width: 115px; /* 指定最大宽度 */
+}
+.folderBg{
+  background-color: #ffffff;
+}
+.fileBg{
+  background-color: #f3f3f3;
 }
 </style>

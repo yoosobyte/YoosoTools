@@ -42,8 +42,8 @@ func (a *App) startup(ctx context.Context) {
 
 		systray.Run(func() {
 			systray.SetIcon(trayIcon)
-			systray.SetTitle("GoTools")
-			systray.SetTooltip("GoTools")
+			systray.SetTitle("YoosoTools")
+			systray.SetTooltip("YoosoTools")
 
 			mShow := systray.AddMenuItem("显示窗口", "")
 			mQuit := systray.AddMenuItem("退出", "")
@@ -52,7 +52,8 @@ func (a *App) startup(ctx context.Context) {
 			for {
 				select {
 				case <-mShow.ClickedCh:
-					runtime.WindowShow(a.ctx) // wails 2.x 已线程安全
+					runtime.WindowShow(a.ctx)
+					runtime.EventsEmit(a.ctx, "window_show")
 				case <-mQuit.ClickedCh:
 					runtime.Quit(a.ctx)
 				}
@@ -66,6 +67,7 @@ func (a *App) startup(ctx context.Context) {
 		}
 	}()
 }
+
 func (a *App) SelectFolder(field string) string {
 	// 使用 Wails 的运行时打开文件夹选择对话框
 	folderPath, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
@@ -128,6 +130,10 @@ func (a *App) KillPort(port string) string {
 
 func (a *App) GetIpInfo() string {
 	return controller.GetIpInfo()
+}
+
+func (a *App) GetRadioIpList() string {
+	return controller.GetRadioIpList()
 }
 
 func (a *App) SaveFile(params map[string]interface{}) string {

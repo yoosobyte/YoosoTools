@@ -17,7 +17,7 @@ import (
 
 func PostNewPath(nowPath string, sessionId string, isInit int) string {
 	for isInit == 1 {
-		sessionData, exists := sessions[sessionId]
+		sessionData, exists := GetSession(sessionId)
 
 		if !exists || sessionData.Client == nil {
 			time.Sleep(1 * time.Second)
@@ -696,30 +696,9 @@ func SaveNewFile(fileName, fileContent, filePath, sessionId string) string {
 	return entity.SuccessOnlyDataStr(result)
 }
 func UploadDirOrFile(targetUploadPath, willUploadPath, sessionId string) string {
-	// 详细的调试信息
-	fmt.Printf("UploadDirOrFile 参数接收: targetUploadPath=%s (type: %T)\n", targetUploadPath, targetUploadPath)
-	fmt.Printf("UploadDirOrFile 参数接收: willUploadPath=%s (type: %T)\n", willUploadPath, willUploadPath)
-	fmt.Printf("UploadDirOrFile 参数接收: sessionId=%s (type: %T)\n", sessionId, sessionId)
-
-	// 参数检查
-	if targetUploadPath == "" {
-		fmt.Println("错误: targetUploadPath 为空")
-		runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, "1|错误：目标上传路径不能为空")
-		return entity.ErrorOnlyMsgStr("目标上传路径不能为空")
-	}
-	if willUploadPath == "" {
-		fmt.Println("错误: willUploadPath 为空")
-		runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, "1|错误：目标Linux路径不能为空")
-		return entity.ErrorOnlyMsgStr("目标Linux路径不能为空")
-	}
-	if sessionId == "" {
-		fmt.Println("错误: sessionId 为空")
-		runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, "1|错误：会话ID不能为空")
-		return entity.ErrorOnlyMsgStr("会话ID不能为空")
-	}
 
 	// 检查会话是否存在
-	sessionData, exists := sessions[sessionId]
+	sessionData, exists := GetSession(sessionId)
 	if !exists {
 		fmt.Printf("错误: 会话不存在, sessionId=%s\n", sessionId)
 		runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, "1|错误：会话不存在或已过期")
@@ -765,7 +744,7 @@ func UploadDirOrFile(targetUploadPath, willUploadPath, sessionId string) string 
 
 	var result map[string]interface{}
 	var uploadType string
-
+	fmt.Println("fileInfo.IsDir():", fileInfo.IsDir())
 	if fileInfo.IsDir() {
 		// 上传文件夹
 		uploadType = "文件夹"
@@ -859,7 +838,7 @@ func uploadSingleFile(localFilePath, remoteDirPath, sessionId string, sessionDat
 
 // 使用SCP方式上传文件
 func uploadWithSCP(localFilePath, remoteFilePath, sessionId string, fileSize int64) map[string]interface{} {
-	session, exists := sessions[sessionId]
+	session, exists := GetSession(sessionId)
 	if !exists {
 		return map[string]interface{}{
 			"success": false,
@@ -1015,6 +994,17 @@ func uploadDirectory(localDirPath, remoteDirPath, sessionId string, sessionData 
 	var uploadedFiles []map[string]interface{}
 	var failedFiles []map[string]interface{}
 
+	// 获取本地目录的名称（最后一级目录名）
+	localDirName := filepath.Base(localDirPath)
+
+	// 构建正确的远程目标路径：remoteDirPath/localDirName
+	targetRemotePath := fmt.Sprintf("%s/%s", remoteDirPath, localDirName)
+	targetRemotePath = strings.ReplaceAll(targetRemotePath, "\\", "/")
+	targetRemotePath = strings.ReplaceAll(targetRemotePath, "//", "/")
+
+	runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId,
+		fmt.Sprintf("16|目标远程路径: %s", targetRemotePath))
+
 	// 首先统计文件总数和总大小
 	totalFiles := 0
 	totalSize := int64(0)
@@ -1043,13 +1033,24 @@ func uploadDirectory(localDirPath, remoteDirPath, sessionId string, sessionData 
 	currentFile := 0
 	currentSize := int64(0)
 
+	// 首先创建目标远程目录
+	mkdirCmd := fmt.Sprintf("mkdir -p '%s'", targetRemotePath)
+	_, err := ExecuteBackendCommand(mkdirCmd, sessionId)
+	if err != nil {
+		runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, "1|错误：创建远程目录失败")
+		return map[string]interface{}{
+			"success": false,
+			"error":   "创建远程目录失败: " + err.Error(),
+		}
+	}
+
 	// 遍历本地目录并上传
-	err := filepath.Walk(localDirPath, func(path string, info os.FileInfo, err error) error {
+	err = filepath.Walk(localDirPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
-		// 计算相对路径
+		// 计算相对路径（相对于本地目录）
 		relPath, err := filepath.Rel(localDirPath, path)
 		if err != nil {
 			return err
@@ -1059,13 +1060,13 @@ func uploadDirectory(localDirPath, remoteDirPath, sessionId string, sessionData 
 			return nil // 跳过根目录本身
 		}
 
-		// 正确构建远程路径（统一使用正斜杠）
-		remotePath := fmt.Sprintf("%s/%s", remoteDirPath, relPath)
-		remotePath = strings.ReplaceAll(remotePath, "\\", "/") // 替换所有反斜杠
-		remotePath = strings.ReplaceAll(remotePath, "//", "/") // 去除重复斜杠
+		// 构建远程路径：targetRemotePath/relativePath
+		remotePath := fmt.Sprintf("%s/%s", targetRemotePath, relPath)
+		remotePath = strings.ReplaceAll(remotePath, "\\", "/")
+		remotePath = strings.ReplaceAll(remotePath, "//", "/")
 
 		if info.IsDir() {
-			// 创建远程目录（确保路径用引号包裹）
+			// 创建远程目录
 			mkdirCmd := fmt.Sprintf("mkdir -p '%s'", remotePath)
 			_, err := ExecuteBackendCommand(mkdirCmd, sessionId)
 			if err != nil {
@@ -1084,9 +1085,9 @@ func uploadDirectory(localDirPath, remoteDirPath, sessionId string, sessionData 
 			runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId,
 				fmt.Sprintf("%d|上传文件 %d/%d: %s", progress, currentFile, totalFiles, filepath.Base(path)))
 
-			// 上传文件（传递正确的远程目录路径）
+			// 上传文件到正确的远程目录
 			remoteDir := filepath.Dir(remotePath)
-			remoteDir = strings.ReplaceAll(remoteDir, "\\", "/") // 确保目录路径正确
+			remoteDir = strings.ReplaceAll(remoteDir, "\\", "/")
 			result := uploadSingleFile(path, remoteDir, sessionId, sessionData)
 
 			if result["success"].(bool) {
@@ -1122,7 +1123,8 @@ func uploadDirectory(localDirPath, remoteDirPath, sessionId string, sessionData 
 	// 计算最终结果
 	success := len(failedFiles) == 0
 	if success {
-		runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId, "100|文件夹上传完成！")
+		runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId,
+			fmt.Sprintf("100|文件夹上传完成！位置: %s", targetRemotePath))
 	} else {
 		runtime.EventsEmit(appCtx, "upload_rate_call_"+sessionId,
 			fmt.Sprintf("95|上传完成，有 %d 个文件失败", len(failedFiles)))
@@ -1134,6 +1136,7 @@ func uploadDirectory(localDirPath, remoteDirPath, sessionId string, sessionData 
 		"failedCount":   len(failedFiles),
 		"totalFiles":    totalFiles,
 		"totalSize":     totalSize,
+		"targetPath":    targetRemotePath, // 返回最终的目标路径
 		"uploadedFiles": uploadedFiles,
 		"failedFiles":   failedFiles,
 	}

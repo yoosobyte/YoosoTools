@@ -11,9 +11,9 @@ const form = reactive({
     "ip": "x.x.x.x",
     "localIp": "x.x.x.x",
     "location": ["国家", "省份", "市区", "", "运营商"],
-    "ipList":[]
   },
 })
+const ipList = ref([])
 const reqLoading = ref(false)
 
 async function copyIp(data): Promise<void> {
@@ -24,33 +24,33 @@ async function copyIp(data): Promise<void> {
     ElMessage.info('复制失败')
   }
 }
-EventsOn(`new_peer_data`, async () => {
-  getInitData('0');
-})
 
 getInitData('0');
 
 function getInitData (code) {
   reqLoading.value = true
-  window.go.main.App.GetIpInfo().then((resp)=>{
-    const newData = JSON.parse(resp);
-    newData.data.ipList.sort((a, b) => {
-      // IPv4 按点分十进制可直接用 localeCompare 升序
-      return a.localIp.localeCompare(b.localIp);
-    });
-    Object.assign(form,newData)
-    reqLoading.value = false
-    if(code==='1'){
-      ElMessage.info('已重新获取IP')
-    }
-  }).catch(err=>{
-    reqLoading.value = false
-    if(code==='1'){
-      ElMessage.warning('获取URL请求异常,请刷新')
-    }
-    getInitData('0');
-  })
+  setTimeout(() => {
+    window.go.main.App.GetIpInfo().then((resp)=>{
+      const newData = JSON.parse(resp);
+      Object.assign(form,newData)
+      reqLoading.value = false
+      if(code==='1'){
+        ElMessage({
+          message: '已重新获取IP',
+          grouping: true,
+          type: 'info',
+        })
+      }
+    }).catch(err=>{
+      reqLoading.value = false
+      if(code==='1'){
+        ElMessage.warning('获取URL请求异常,请刷新')
+      }
+      getInitData('0');
+    })
+  },100)
 }
+
 function getAddr(type){
   let addrList = form.data.location
   if(type==='addr'){
@@ -60,6 +60,24 @@ function getAddr(type){
     return addrList[4];
   }
 }
+
+getRadioIpList()
+
+function getRadioIpList () {
+  window.go.main.App.GetRadioIpList().then((resp)=>{
+    const ipListData = JSON.parse(resp);
+    ipListData.data.sort((a, b) => {
+      return a.localIp.localeCompare(b.localIp);
+    });
+    ipList.value = ipListData.data;
+  }).catch(err=>{
+  })
+}
+
+EventsOn(`new_peer_data`, async () => {
+  getRadioIpList();
+})
+
 function postRadio (){
   window.go.main.App.PostRadio().then((resp)=>{
     ElMessage.info('已重新发送广播,快告诉你的小伙伴吧')
@@ -97,9 +115,9 @@ function postRadio (){
             <el-descriptions-item label="本地IP">{{form.data.localIp}}</el-descriptions-item>
             <el-descriptions-item label="地区" >{{getAddr('addr')}}</el-descriptions-item>
             <el-descriptions-item label="运营商" >{{getAddr('agent')}}</el-descriptions-item>
-            <el-descriptions-item label="IP组" v-if="form.data.ipList.length > 0">
+            <el-descriptions-item label="IP组" v-if="ipList.length > 0">
               <el-tag
-                  v-for="(item, index) in form.data.ipList"
+                  v-for="(item, index) in ipList"
                   :key="index"
                   style="width: 100%; margin-bottom: 3px;"
                   type="info"

@@ -34,6 +34,10 @@ export function GetOneServer(arg1) {
   return window['go']['main']['App']['GetOneServer'](arg1);
 }
 
+export function GetRadioIpList() {
+  return window['go']['main']['App']['GetRadioIpList']();
+}
+
 export function KillPort(arg1) {
   return window['go']['main']['App']['KillPort'](arg1);
 }
