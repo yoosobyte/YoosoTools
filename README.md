@@ -8,7 +8,7 @@
 ---
 
 ## 🧩 软件截图展示
-![ip.png](images/ip.png)
+![ip.png](images/ip_open.png)
 ![killport.png](images/killport.png)
 ![jsonparse.png](images/jsonparse.png)
 ![ssh_list.png](images/ssh_list.png)
