@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import {reactive, ref} from 'vue'
-import {Back, CircleClose, Close} from '@element-plus/icons-vue'
+import {Back, CircleClose, Close, CollectionTag, ElementPlus, Mouse, Platform} from '@element-plus/icons-vue'
 import {ElMessage} from 'element-plus'
 
 const response = ref('')
@@ -36,7 +36,7 @@ const rules = {
 }
 
 const handleClear = () => {
-  ElMessage.info('端口号已清除')
+  // ElMessage.info('端口号已清除')
   setForm.killPort = ''
   respArray.value = []
 }
@@ -87,8 +87,11 @@ const handleKeyDown = (e) => {
         </el-form-item>
         <el-form-item>
           <div style="display: flex;align-items: center;width: 100%;">
-            <el-button style="width: 100%;" size="large" type="primary" @click="saveSet">
-              <span style="font-family: 'Times','Times New Roman',serif;font-size: 20px;">Start execution</span>
+            <el-button style="width: 100%;" size="large" type="primary" @click="saveSet" plain>
+              <el-icon style="font-size: 20px;"><ElementPlus /></el-icon>
+              <span style="font-family: 幼圆,serif;font-size: 18px;font-weight: bold;">
+                执行
+              </span>
             </el-button>
           </div>
         </el-form-item>

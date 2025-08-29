@@ -120,7 +120,7 @@ function choseServer(item){
               <div class="al-center" style="justify-content: space-between;">
                 <div>{{ item.serverName }}</div>
                 <div>
-                  <el-icon style="color: #969696;cursor: pointer;margin-right: 10px;" @click.stop="editServer(item.serverId)">
+                  <el-icon style="color: #3b3a3a;cursor: pointer;margin-right: 10px;" @click.stop="editServer(item.serverId)">
                     <Edit/>
                   </el-icon>
                   <el-icon style="color: #3b3a3a;cursor: pointer;" @click.stop="removeServer(item.serverId)">
