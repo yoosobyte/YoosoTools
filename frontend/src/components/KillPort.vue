@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import {reactive, ref} from 'vue'
-import {Close} from '@element-plus/icons-vue'
+import {Back, CircleClose, Close} from '@element-plus/icons-vue'
 import {ElMessage} from 'element-plus'
 
 const response = ref('')
@@ -81,7 +81,7 @@ const handleKeyDown = (e) => {
           </h2>
           <el-input v-model="setForm.killPort" size="large" placeholder="请输入您要kill的端口号"  @keydown="handleKeyDown">
             <template #append>
-              <el-button :icon="Close" @click="handleClear()"/>
+              <el-button :icon="Back" @click="handleClear()"/>
             </template>
           </el-input>
         </el-form-item>

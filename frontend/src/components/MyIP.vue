@@ -19,7 +19,11 @@ const reqLoading = ref(false)
 async function copyIp(data): Promise<void> {
   try {
     await navigator.clipboard.writeText(data);
-    ElMessage.success(data + ' 已复制')
+    ElMessage({
+      message: data + ' 已复制',
+      grouping: true,
+      type: 'success',
+    })
   } catch (err) {
     ElMessage.info('复制失败')
   }
@@ -80,14 +84,17 @@ EventsOn(`new_peer_data`, async () => {
 
 function postRadio (){
   window.go.main.App.PostRadio().then((resp)=>{
-    ElMessage.info('已重新发送广播,快告诉你的小伙伴吧')
+    ElMessage({
+      message: '已重新发送广播,快告诉你的小伙伴吧',
+      grouping: true,
+      type: 'info',
+    })
   }).catch(err=>{
-
   })
 }
 </script>
 <template>
-  <div style="width: 100%;display: flex;align-items: center;justify-content: center;margin-top: 20px;">
+  <div style="width: 100%;display: flex;align-items: center;justify-content: center;">
     <div>
       <el-form
           ref="formRef"
@@ -98,7 +105,7 @@ function postRadio (){
           style="width: 500px;"
       >
         <el-form-item label="" prop="killPort">
-          <h2 style="text-align: center;width: 100%;margin-top: 100px;color: #5c5b5b;cursor: pointer;user-select: none;" @click="getInitData('1')">
+          <h2 style="text-align: center;width: 100%;margin-top: 90px;color: #5c5b5b;cursor: pointer;user-select: none;padding-left: 16px;" @click="getInitData('1')">
             您的IP地址
             <el-button style="padding: 4px 1px 7px 1px" :icon="Refresh" text :loading="reqLoading"/>
           </h2>
@@ -116,28 +123,27 @@ function postRadio (){
             <el-descriptions-item label="地区" >{{getAddr('addr')}}</el-descriptions-item>
             <el-descriptions-item label="运营商" >{{getAddr('agent')}}</el-descriptions-item>
             <el-descriptions-item label="IP组" v-if="ipList.length > 0">
-              <el-tag
+              <div
                   v-for="(item, index) in ipList"
                   :key="index"
-                  style="width: 100%; margin-bottom: 3px;"
-                  type="info"
+                  style="margin: 3px 0;"
               >
-                <div style="display: flex;align-items: center;width: 100%;gap: 5px;">
-                  <div style="flex: 1 1 0; text-align: center;">{{item.localIp}}</div>
-                  <div style="flex: 1 1 0; text-align: center;">
+                <div style="display: flex;align-items: center;width: 100%;height: 28px;background-color: #F4F4F5;border-radius: 3px;border: 1px solid #E9E9EB;">
+                  <div style="text-align: start;width: 30%;padding-left: 10px;">{{item.localIp}}</div>
+                  <div style="text-align: start;width: 10%;">
                     <el-button type="info" text size="small" @click="copyIp(item.localIp)">复制</el-button>
                   </div>
-                  <div class="new-space">
-                    <el-divider style="width: 50px;">
+                  <div class="new-space" style="width: 20%;text-align: center;display:flex;justify-content: center;">
+                    <el-divider style="width: 50px;" class="new-divider">
                       <el-icon style="color:#73767A;background-color: #e9e9eb;"><star-filled /></el-icon>
                     </el-divider>
                   </div>
-                  <div style="flex: 1 1 0; text-align: center;color:#409EFF;">{{item.remoteIp}}</div>
-                  <div style="flex: 1 1 0; text-align: center;">
+                  <div style="text-align: start;color:#409EFF;width: 30%;">{{item.remoteIp}}</div>
+                  <div style="text-align: start;width: 10%;padding-right: 10px;">
                     <el-button type="primary" text size="small" @click="copyIp(item.remoteIp)">复制</el-button>
                   </div>
                 </div>
-              </el-tag>
+              </div>
             </el-descriptions-item>
           </el-descriptions>
           <div v-if="form.err!==''">
@@ -146,9 +152,9 @@ function postRadio (){
         </el-form-item>
         <el-form-item>
           <div style="display: flex;align-items: center;width: 100%;">
-            <el-button style="width: 20%;" size="large" type="info" :icon="MagicStick" @click="postRadio" plain>广播</el-button>
-            <el-button style="width: 30%;" size="large" type="info" :icon="DocumentCopy" @click="copyIp(form.data.localIp)" plain>复制本地IP</el-button>
-            <el-button style="width: 50%;" size="large" type="primary" :icon="CopyDocument" @click="copyIp(form.data.ip)" plain>复制远程IP地址->剪贴板</el-button>
+            <el-button style="width: 15%;" size="large" type="info" :icon="MagicStick" @click="postRadio" plain>广播</el-button>
+            <el-button style="width: 35%;" size="large" type="info" :icon="DocumentCopy" @click="copyIp(form.data.localIp)" plain>复制本地IP</el-button>
+            <el-button style="width: 50%;" size="large" type="primary" :icon="CopyDocument" @click="copyIp(form.data.ip)" plain>复制远程IP->剪贴板</el-button>
           </div>
         </el-form-item>
       </el-form>
@@ -158,5 +164,8 @@ function postRadio (){
 <style scoped>
 .new-space :deep(.el-divider__text) {
   padding: 0 0;
+}
+.new-divider :deep(.el-divider__text) {
+  background-color: #f4f4f5;
 }
 </style>
